@@ -1,0 +1,256 @@
+--// Wait for Game Load
+if not game:IsLoaded() then game.Loaded:Wait() end
+
+--// Configuration
+local StealthSettings = {
+    ESP = false,
+    Aim = false,
+    God = false,
+    Smoothness = 0.1,
+    ID = "KingHub_Final_V10_" .. math.random(1000, 9999)
+}
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TextChatService = game:GetService("TextChatService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local LockedTarget = nil
+
+--// 20+ RANDOM MESSAGES (Von/Big Head/Weird/TOS)
+local TrollMessages = {
+    "Von is the goat fr",
+    "Big Head is actually carrying this game",
+    "Von is just built different",
+    "Imagine not knowing Big Head is the goat",
+    "Von > Everyone in this server",
+    "Big Head is the king of this lobby",
+    "You're just a side character in Von's story",
+    "Is it just me or is the floor made of floor?",
+    "My toaster told me you were bad at this",
+    "Von and Big Head on top always",
+    "Have you tried turning your skill on?",
+    "I'm eating an invisible sandwich right now",
+    "Von is the reason this server is still up",
+    "Big Head is watching you. Stay alert.",
+    "Do you ever wonder if NPCs think about us?",
+    "Von is the true goat, no cap",
+    "Big Head sent me here to humble you",
+    "I'm actually a penguin in a human suit",
+    "Von's aura is too strong for this game",
+    "Big Head is the final boss of Roblox",
+    "Wait, is this a dream or am I just lagging?",
+    "Von is the goat, Big Head is the king"
+}
+
+--// GUI CORE
+local ScreenGui = Instance.new("ScreenGui", (gethui and gethui()) or LocalPlayer:WaitForChild("PlayerGui"))
+ScreenGui.Name = StealthSettings.ID
+ScreenGui.ResetOnSpawn = false
+ScreenGui.DisplayOrder = 999
+
+--// LOADER (CREDIT BIG HEAD)
+local LoaderFrame = Instance.new("Frame", ScreenGui)
+LoaderFrame.Size = UDim2.new(1, 0, 1, 0)
+LoaderFrame.BackgroundColor3 = Color3.new(0, 0, 0)
+LoaderFrame.ZIndex = 10000
+
+local function CreatePixelText(text, pos, size, color)
+    local l = Instance.new("TextLabel", LoaderFrame)
+    l.Size = UDim2.new(1, 0, 0, 50)
+    l.Position = pos
+    l.Text = text
+    l.TextColor3 = color
+    l.Font = Enum.Font.Code
+    l.TextSize = size
+    l.ZIndex = 10001
+    l.BackgroundTransparency = 1
+    return l
+end
+
+CreatePixelText("MADE BY VON PRESENTS:", UDim2.new(0, 0, 0.25, 0), 28, Color3.new(1, 0, 0))
+CreatePixelText("CREDIT BIG HEAD", UDim2.new(0, 0, 0.32, 0), 32, Color3.new(1, 1, 1))
+
+local BarBack = Instance.new("Frame", LoaderFrame)
+BarBack.Size = UDim2.new(0, 280, 0, 10)
+BarBack.Position = UDim2.new(0.5, -140, 0.5, 0)
+BarBack.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+BarBack.ZIndex = 10001
+
+local BarFill = Instance.new("Frame", BarBack)
+BarFill.Size = UDim2.new(0, 0, 1, 0)
+BarFill.BackgroundColor3 = Color3.new(1, 0, 0)
+BarFill.ZIndex = 10002
+
+--// TWEEN BYPASS TELEPORT
+local function FlickBypassTeleport(targetChar)
+    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    local targetHRP = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+    if hrp and targetHRP then
+        local connection = RunService.Stepped:Connect(function()
+            hrp.Velocity = Vector3.zero 
+            for _, v in pairs(LocalPlayer.Character:GetDescendants()) do
+                if v:IsA("BasePart") then v.CanCollide = false end
+            end
+        end)
+        local targetPos = targetHRP.CFrame * CFrame.new(0, 0, 3)
+        local duration = (hrp.Position - targetPos.p).Magnitude / 150
+        local tween = TweenService:Create(hrp, TweenInfo.new(duration, Enum.EasingStyle.Linear), {CFrame = targetPos})
+        tween:Play()
+        tween.Completed:Wait()
+        connection:Disconnect()
+        hrp.Velocity = Vector3.zero
+    end
+end
+
+--// MAIN MENU UI
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Size = UDim2.new(0, 240, 0, 350)
+MainFrame.Position = UDim2.new(0.5, -120, 0.5, -175)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+MainFrame.Visible = false
+MainFrame.Active = true
+MainFrame.Draggable = true 
+Instance.new("UIStroke", MainFrame).Color = Color3.new(1, 0, 0)
+Instance.new("UICorner", MainFrame)
+
+local ToggleBtn = Instance.new("TextButton", ScreenGui)
+ToggleBtn.Size = UDim2.new(0, 55, 0, 55)
+ToggleBtn.Position = UDim2.new(0, 15, 0.4, 0)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+ToggleBtn.Text = "K"
+ToggleBtn.TextColor3 = Color3.new(1, 1, 1)
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.TextSize = 28
+ToggleBtn.Visible = false
+ToggleBtn.Draggable = true 
+Instance.new("UICorner", ToggleBtn)
+ToggleBtn.MouseButton1Click:Connect(function() MainFrame.Visible = not MainFrame.Visible end)
+
+local function createToggle(name, y, callback)
+    local b = Instance.new("TextButton", MainFrame)
+    b.Size = UDim2.new(0, 200, 0, 35)
+    b.Position = UDim2.new(0, 20, 0, y)
+    b.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    b.Text = name .. ": OFF"
+    b.TextColor3 = Color3.new(1,1,1)
+    b.Font = Enum.Font.GothamBold
+    Instance.new("UICorner", b)
+    local act = false
+    b.MouseButton1Click:Connect(function()
+        act = not act
+        b.Text = name .. ": " .. (act and "ON" or "OFF")
+        b.BackgroundColor3 = act and Color3.fromRGB(160, 0, 0) or Color3.fromRGB(25, 25, 25)
+        callback(act)
+    end)
+end
+
+createToggle("BOLD ESP", 40, function(v) StealthSettings.ESP = v end)
+createToggle("AIM LOCK", 85, function(v) StealthSettings.Aim = v end)
+createToggle("GOD MODE", 130, function(v) StealthSettings.God = v end)
+
+--// PLAYER LIST
+local PlayerList = Instance.new("ScrollingFrame", MainFrame)
+PlayerList.Size = UDim2.new(0, 200, 0, 80)
+PlayerList.Position = UDim2.new(0, 20, 0, 180)
+PlayerList.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+PlayerList.ScrollBarThickness = 2
+Instance.new("UIListLayout", PlayerList).Padding = UDim.new(0, 5)
+
+local function UpdateTPList()
+    for _, v in pairs(PlayerList:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then
+            local b = Instance.new("TextButton", PlayerList)
+            b.Size = UDim2.new(1, -5, 0, 30)
+            b.Text = p.DisplayName
+            b.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+            b.TextColor3 = Color3.new(1,1,1)
+            b.Font = Enum.Font.Gotham
+            Instance.new("UICorner", b)
+            b.MouseButton1Click:Connect(function() if p.Character then FlickBypassTeleport(p.Character) end end)
+        end
+    end
+end
+
+local RefreshBtn = Instance.new("TextButton", MainFrame)
+RefreshBtn.Size = UDim2.new(0, 200, 0, 30)
+RefreshBtn.Position = UDim2.new(0, 20, 0, 270)
+RefreshBtn.Text = "REFRESH LIST"
+RefreshBtn.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
+RefreshBtn.TextColor3 = Color3.new(1, 1, 1)
+Instance.new("UICorner", RefreshBtn)
+RefreshBtn.MouseButton1Click:Connect(UpdateTPList)
+
+--// CHAT LOGIC (AUTO-ON EVERY 10 SEC)
+local function SendChatMessage(msg)
+    if TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+        local channel = TextChatService.TextChannels.RBXGeneral
+        if channel then channel:SendAsync(msg) end
+    else
+        ReplicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer(msg, "All")
+    end
+end
+
+task.spawn(function()
+    while task.wait(10) do
+        local pList = Players:GetPlayers()
+        local targetList = {}
+        for _, p in pairs(pList) do if p ~= LocalPlayer then table.insert(targetList, p) end end
+        
+        if #targetList > 0 then
+            local randomPlayer = targetList[math.random(1, #targetList)]
+            local randomMsg = TrollMessages[math.random(1, #TrollMessages)]
+            SendChatMessage("@" .. randomPlayer.Name .. " " .. randomMsg)
+        end
+    end
+end)
+
+--// ENGINE
+RunService.RenderStepped:Connect(function()
+    if LockedTarget and (not LockedTarget.Character or LockedTarget.Character.Humanoid.Health <= 0) then
+        LockedTarget = nil
+    end
+
+    if not LockedTarget and StealthSettings.Aim then
+        local shortest = 5000
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") and p.Character.Humanoid.Health > 0 then
+                local _, onScreen = Camera:WorldToViewportPoint(p.Character.Head.Position)
+                if onScreen then
+                    local d = (Camera.CFrame.Position - p.Character.Head.Position).Magnitude
+                    if d < shortest then shortest = d LockedTarget = p end
+                end
+            end
+        end
+    end
+
+    if LockedTarget and StealthSettings.Aim then
+        Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, LockedTarget.Character.Head.Position), StealthSettings.Smoothness)
+    end
+    
+    if StealthSettings.God and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        LocalPlayer.Character.Humanoid.Health = 100
+    end
+end)
+
+--// AUTO SHOOT LOOP
+task.spawn(function()
+    while task.wait(0.1) do
+        if LockedTarget and StealthSettings.Aim then
+            local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
+            if tool then tool:Activate() end
+        end
+    end
+end)
+
+--// RUN
+task.spawn(function()
+    for i = 1, 100 do BarFill.Size = UDim2.new(i/100, 0, 1, 0) task.wait(0.04) end
+    LoaderFrame:Destroy()
+    ToggleBtn.Visible = true
+    MainFrame.Visible = true
+    UpdateTPList()
+end)
