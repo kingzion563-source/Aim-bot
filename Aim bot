@@ -1,0 +1,121 @@
+--// Configuration
+local StealthSettings = {
+    ESP = false,
+    Aim = false,
+    Smoothness = 0.2, -- 0.1 to 1 (Lower = More Human, Higher = More Snappy)
+    LockPart = "Head",
+    -- Randomizing names to prevent detection by name-searching scripts
+    ID = "Z_" .. math.random(1000, 9999) 
+}
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+--// Randomized UI Setup
+local ScreenGui = Instance.new("ScreenGui", (gethui and gethui()) or LocalPlayer:WaitForChild("PlayerGui"))
+ScreenGui.Name = StealthSettings.ID
+
+local function createToggle(text, pos, callback)
+    local btn = Instance.new("TextButton", ScreenGui)
+    btn.Size = UDim2.new(0, 150, 0, 40)
+    btn.Position = pos
+    btn.Text = text .. ": OFF"
+    btn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.SourceSansBold
+    btn.TextSize = 18
+    
+    local active = false
+    btn.MouseButton1Click:Connect(function()
+        active = not active
+        btn.Text = text .. ": " .. (active and "ON" or "OFF")
+        btn.BackgroundColor3 = active and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(20, 20, 20)
+        callback(active)
+    end)
+end
+
+createToggle("S-Visuals", UDim2.new(0, 10, 0.4, 0), function(v) StealthSettings.ESP = v end)
+createToggle("S-Lock", UDim2.new(0, 10, 0.4, 45), function(v) StealthSettings.Aim = v end)
+
+--// Logic Functions
+local function isValid(p)
+    return p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 and p.Character:FindFirstChild(StealthSettings.LockPart)
+end
+
+local function getBestTarget()
+    local target, closest = nil, math.huge
+    for _, p in pairs(Players:GetPlayers()) do
+        if isValid(p) then
+            -- Checks distance to your cursor rather than world distance (More human-like)
+            local pos, onScreen = Camera:WorldToViewportPoint(p.Character[StealthSettings.LockPart].Position)
+            if onScreen then
+                local mag = (Vector2.new(pos.X, pos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
+                if mag < closest then
+                    closest = mag
+                    target = p
+                end
+            end
+        end
+    end
+    return target
+end
+
+--// Tracer & Box Management
+local function updateVisuals(p, char)
+    -- Highlight (Using randomized name)
+    local h = char:FindFirstChild(StealthSettings.ID .. "_H") or Instance.new("Highlight", char)
+    h.Name = StealthSettings.ID .. "_H"
+    h.Enabled = StealthSettings.ESP
+    h.FillColor = Color3.new(1, 0, 0)
+    h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+
+    -- Name Tag
+    local head = char:FindFirstChild("Head")
+    if head then
+        local b = head:FindFirstChild(StealthSettings.ID .. "_T") or Instance.new("BillboardGui", head)
+        b.Name = StealthSettings.ID .. "_T"
+        b.Size = UDim2.new(0, 100, 0, 20)
+        b.AlwaysOnTop = true
+        b.Enabled = StealthSettings.ESP
+        
+        local l = b:FindFirstChild("L") or Instance.new("TextLabel", b)
+        l.Name = "L"
+        l.BackgroundTransparency = 1
+        l.Size = UDim2.new(1,0,1,0)
+        l.TextColor3 = Color3.new(1,0,0)
+        l.Text = p.Name
+        l.TextSize = 12
+    end
+end
+
+--// Main Runtime
+local currentTarget = nil
+
+RunService.RenderStepped:Connect(function()
+    -- Visual Loop
+    for _, p in pairs(Players:GetPlayers()) do
+        if p.Character then
+            updateVisuals(p, p.Character)
+        end
+    end
+
+    -- Aim Loop
+    if StealthSettings.Aim then
+        if not currentTarget or not isValid(currentTarget) then
+            currentTarget = getBestTarget()
+        end
+
+        if currentTarget and currentTarget.Character then
+            local tPos = currentTarget.Character[StealthSettings.LockPart].Position
+            
+            -- LERP (Linear Interpolation) for Smooth Aiming
+            -- This moves the camera toward the target smoothly instead of snapping instantly
+            local targetCF = CFrame.new(Camera.CFrame.Position, tPos)
+            Camera.CFrame = Camera.CFrame:Lerp(targetCF, StealthSettings.Smoothness)
+        end
+    else
+        currentTarget = nil
+    end
+end)
